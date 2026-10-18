@@ -444,3 +444,160 @@ import Testing
     #expect(config.string(forKey: ["bundle", "name"]) == "Env App")
     #expect(config.string(forKey: ["bundle", "identifier"]) == "dev.example.configapp")
 }
+
+@Test func manifestRoundTripReadsTOMLWriterProduces() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let appImageURL = rootURL.appendingPathComponent("sample.AppImage")
+    try Data("fake appimage".utf8).write(to: appImageURL)
+    let bundleURL = rootURL.appendingPathComponent("RoundTrip.app", isDirectory: true)
+
+    let options = BundleOptions(
+        name: "Round Trip",
+        identifier: "dev.example.roundtrip",
+        version: "1.0.0",
+        appImagePath: appImageURL,
+        iconPath: nil,
+        assetPaths: [],
+        outputPath: bundleURL
+    )
+    _ = try AppBundleBuilder().createBundle(options)
+
+    let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("Contents/Manifest.toml"))
+    let manifest = try decodeManifestTOML(manifestData)
+
+    #expect(manifest == BundleManifest(
+        formatVersion: 1,
+        identifier: "dev.example.roundtrip",
+        name: "Round Trip",
+        version: "1.0.0",
+        executable: "Contents/Linux/AppImage",
+        icon: nil,
+        assets: []
+    ))
+}
+
+@Test func installerReadsLegacyJSONManifest() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let bundleURL = rootURL.appendingPathComponent("LegacyJSON.app", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: bundleURL.appendingPathComponent("Contents", isDirectory: true),
+        withIntermediateDirectories: true
+    )
+    let manifestJSON = """
+    {
+        "formatVersion": 1,
+        "identifier": "dev.example.legacyjson",
+        "name": "Legacy JSON",
+        "version": "2.0.0",
+        "executable": "Contents/Linux/AppImage",
+        "icon": "Contents/Resources/AppIcon.svg",
+        "assets": ["Contents/Resources/Assets/data.json"]
+    }
+    """
+    try manifestJSON.data(using: .utf8)!.write(
+        to: bundleURL.appendingPathComponent("Contents/Manifest.json")
+    )
+    try Data("desktop".utf8).write(
+        to: bundleURL.appendingPathComponent("dev.example.legacyjson.desktop")
+    )
+
+    let applicationsURL = rootURL.appendingPathComponent("applications", isDirectory: true)
+    let installer = try AppBundleInstaller(applicationsDirectory: applicationsURL)
+    let installedEntryURL = try installer.install(bundleURL)
+
+    #expect(installedEntryURL.lastPathComponent == "dev.example.legacyjson.desktop")
+    #expect(try FileManager.default.destinationOfSymbolicLink(atPath: installedEntryURL.path)
+        == bundleURL.appendingPathComponent("dev.example.legacyjson.desktop").path)
+}
+
+@Test func installerReadsApplePlistManifest() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let bundleURL = rootURL.appendingPathComponent("ApplePlist.app", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: bundleURL.appendingPathComponent("Contents", isDirectory: true),
+        withIntermediateDirectories: true
+    )
+    let manifestPlist = """
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+        <key>formatVersion</key><integer>1</integer>
+        <key>identifier</key><string>dev.example.appleplist</string>
+        <key>name</key><string>Apple Plist</string>
+        <key>version</key><string>3.0.0</string>
+        <key>executable</key><string>Contents/Linux/AppImage</string>
+        <key>icon</key><string>Contents/Resources/AppIcon.svg</string>
+        <key>assets</key><array>
+            <string>Contents/Resources/Assets/data.json</string>
+        </array>
+    </dict>
+    </plist>
+    """
+    try manifestPlist.data(using: .utf8)!.write(
+        to: bundleURL.appendingPathComponent("Contents/Manifest.plist")
+    )
+    try Data("desktop".utf8).write(
+        to: bundleURL.appendingPathComponent("dev.example.appleplist.desktop")
+    )
+
+    let applicationsURL = rootURL.appendingPathComponent("applications", isDirectory: true)
+    let installer = try AppBundleInstaller(applicationsDirectory: applicationsURL)
+    let installedEntryURL = try installer.install(bundleURL)
+
+    #expect(installedEntryURL.lastPathComponent == "dev.example.appleplist.desktop")
+    #expect(try FileManager.default.destinationOfSymbolicLink(atPath: installedEntryURL.path)
+        == bundleURL.appendingPathComponent("dev.example.appleplist.desktop").path)
+}
+
+@Test func installerPrefersTOMLOverLegacyJSON() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let bundleURL = rootURL.appendingPathComponent("PreferTOML.app", isDirectory: true)
+    try FileManager.default.createDirectory(
+        at: bundleURL.appendingPathComponent("Contents", isDirectory: true),
+        withIntermediateDirectories: true
+    )
+    try """
+    {"formatVersion":1,"identifier":"dev.example.jsononly","name":"JSON Only","version":"9.9.9","executable":"Contents/Linux/AppImage","icon":null,"assets":[]}
+    """.data(using: .utf8)!.write(
+        to: bundleURL.appendingPathComponent("Contents/Manifest.json")
+    )
+    try """
+    formatVersion = 1
+    identifier = "dev.example.tomlwins"
+    name = "TOML Wins"
+    version = "1.0.0"
+    executable = "Contents/Linux/AppImage"
+    icon = null
+    assets = []
+    """.data(using: .utf8)!.write(
+        to: bundleURL.appendingPathComponent("Contents/Manifest.toml")
+    )
+    try Data("desktop".utf8).write(
+        to: bundleURL.appendingPathComponent("dev.example.tomlwins.desktop")
+    )
+
+    let applicationsURL = rootURL.appendingPathComponent("applications", isDirectory: true)
+    let installer = try AppBundleInstaller(applicationsDirectory: applicationsURL)
+    let installedEntryURL = try installer.install(bundleURL)
+
+    #expect(installedEntryURL.lastPathComponent == "dev.example.tomlwins.desktop")
+    #expect(try FileManager.default.destinationOfSymbolicLink(atPath: installedEntryURL.path)
+        == bundleURL.appendingPathComponent("dev.example.tomlwins.desktop").path)
+}
