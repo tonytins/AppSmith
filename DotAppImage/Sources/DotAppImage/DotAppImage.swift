@@ -7,7 +7,7 @@ struct DotAppImage: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "dotappimage",
         abstract: "Build AppImages and create Linux .app bundles for them.",
-        subcommands: [Build.self, Bundle.self]
+        subcommands: [Build.self, Bundle.self, Open.self]
     )
 
     mutating func run() throws {
@@ -81,6 +81,22 @@ extension DotAppImage {
             )
             let bundleURL = try AppBundleBuilder().createBundle(options)
             print("Created \(bundleURL.path)")
+        }
+    }
+
+    /// Launches an existing `.app` bundle through its `AppRun` script.
+    struct Open: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Launch a Linux .app directory bundle."
+        )
+
+        @Argument(help: "Path to the .app directory bundle.")
+        var app: String
+
+        mutating func run() throws {
+            let bundleURL = URL(fileURLWithPath: app)
+            try AppBundleOpener().open(bundleURL)
+            print("Launched \(bundleURL.standardizedFileURL.path)")
         }
     }
 }

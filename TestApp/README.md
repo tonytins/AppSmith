@@ -22,7 +22,23 @@ Copy the checked-in AppDir template and add the executable:
 cp -R AppDir .build/TestApp.AppDir
 mkdir -p .build/TestApp.AppDir/usr/bin
 cp .build/debug/TestApp .build/TestApp.AppDir/usr/bin/TestApp
+cp -a .build/x86_64-unknown-linux-gnu/debug/Shaft_CSkiaResource.resources \
+  .build/TestApp.AppDir/usr/bin/
 ```
+
+For Swift executables, also copy the Linux runtime libraries from the same
+Swift toolchain used to build the app:
+
+```sh
+mkdir -p .build/TestApp.AppDir/usr/lib/swift/linux
+cp -a "$SWIFT_TOOLCHAIN_USR/lib/swift/linux/." \
+  .build/TestApp.AppDir/usr/lib/swift/linux/
+```
+
+Set `SWIFT_TOOLCHAIN_USR` to the toolchain's `usr` directory. `AppRun` adds
+these bundled Swift libraries to the loader search path. This test AppDir still
+uses the host's SDL, graphics, font, and desktop libraries; it is not a
+dependency-complete portable image.
 
 Then build and bundle it, supplying an AppImage Type 2 runtime for the target
 architecture:

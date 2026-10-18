@@ -1,4 +1,8 @@
 #!/bin/sh
 set -eu
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -d "$APPDIR/usr/lib/swift/linux" ]; then
+    LD_LIBRARY_PATH="$APPDIR/usr/lib/swift/linux${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH
+fi
 exec "$APPDIR/usr/bin/TestApp" "$@"

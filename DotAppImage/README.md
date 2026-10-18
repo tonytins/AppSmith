@@ -48,6 +48,15 @@ Run the bundle directly with:
 ./Sample.app/AppRun
 ```
 
+Or launch it through DotAppImage:
+
+```sh
+swift run dotappimage open ./Sample.app
+```
+
+The `open` command validates that the bundle contains an executable `AppRun`
+and starts it without waiting for the app to exit.
+
 The generated desktop entry is written inside the bundle. Its launch and icon
 paths are absolute paths based on the output location at creation time; if the
 bundle is moved, use `AppRun` directly or regenerate the bundle at its new

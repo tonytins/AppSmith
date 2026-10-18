@@ -117,9 +117,51 @@ import Testing
     #expect(buildCommand.output == "./Sample.AppImage")
 }
 
+@Test func parsesOpenCommand() throws {
+    let command = try DotAppImage.parseAsRoot(["open", "./Sample.app"])
+
+    let openCommand = try #require(command as? DotAppImage.Open)
+    #expect(openCommand.app == "./Sample.app")
+}
+
 @Test func rejectsUnknownCLIOptions() {
     #expect(throws: (any Error).self) {
         try DotAppImage.parseAsRoot(["bundle", "--unknown", "value"])
+    }
+}
+
+@Test func opensBundleUsingItsAppRun() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let markerURL = rootURL.appendingPathComponent("launched")
+    let bundleURL = rootURL.appendingPathComponent("Sample.app", isDirectory: true)
+    try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: false)
+    let appRunURL = bundleURL.appendingPathComponent("AppRun")
+    try Data("#!/bin/sh\nprintf launched > '\(markerURL.path)'\n".utf8).write(to: appRunURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: appRunURL.path)
+
+    try AppBundleOpener().open(bundleURL)
+
+    for _ in 0..<100 where !FileManager.default.fileExists(atPath: markerURL.path) {
+        Thread.sleep(forTimeInterval: 0.01)
+    }
+    #expect(FileManager.default.fileExists(atPath: markerURL.path))
+}
+
+@Test func refusesToOpenBundleWithoutExecutableAppRun() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let bundleURL = rootURL.appendingPathComponent("Invalid.app", isDirectory: true)
+    try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: false)
+
+    #expect(throws: AppBundleOpenError.self) {
+        try AppBundleOpener().open(bundleURL)
     }
 }
 
