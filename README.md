@@ -1,29 +1,87 @@
 # DotAppImage
 
-This repository contains two independent Swift packages:
+DotAppImage is an experimental Linux packaging project exploring a
+directory-based `.app` experience backed by AppImages. A bundle keeps its
+AppImage payload, metadata, icon, and assets together, while a launcher runs
+the payload.
 
-- [`DotAppImage/`](./DotAppImage/) builds Type 2 AppImages from prepared AppDirs
-  and wraps existing AppImages in Linux `.app` directory bundles.
-- [`TestApp/`](./TestApp/) is a small [Shaft](https://github.com/ShaftUI/Shaft)
-  desktop application used to exercise the build and bundle workflow.
+The repository contains two independent Swift packages:
 
-Build the CLI from its package directory:
+| Directory | Purpose |
+| --- | --- |
+| [`DotAppImage/`](./DotAppImage/) | CLI for building Type 2 AppImages from prepared AppDirs, wrapping existing AppImages in `.app` bundles, and launching bundles. |
+| [`TestApp/`](./TestApp/) | Small [Shaft](https://github.com/ShaftUI/Shaft) desktop app and AppDir template used to exercise the workflow. |
+
+## Requirements
+
+- Linux
+- Swift 6.3 or newer for the DotAppImage CLI
+- For `dotappimage build`: `mksquashfs` and a Type 2 AppImage runtime matching the target architecture
+- For TestApp: Shaft's Linux development dependencies for SDL3 and Skia
+
+On Fedora Atomic and other immutable Linux distributions, use Distrobox with
+Podman (or Toolbx) to install TestApp's development dependencies in a
+container rather than layering them onto the host.
+
+## Quick start
+
+Build and test the CLI:
 
 ```sh
-cd DotAppImage
-swift test
-swift run dotappimage --help
+swift test --package-path DotAppImage
+swift run --package-path DotAppImage dotappimage --help
 ```
 
-Build and run the GUI test app:
+Create a bundle from an existing AppImage:
 
 ```sh
-cd TestApp
-swift run
+swift run --package-path DotAppImage dotappimage bundle \
+  --name "Sample App" \
+  --identifier "dev.example.sample" \
+  --version "1.0.0" \
+  --appimage ./Sample.AppImage \
+  --output ./Sample.app
 ```
 
-Shaft uses SDL3 and Skia on Linux. Building it requires the native Linux
-development dependencies documented by [Shaft](https://github.com/ShaftUI/Shaft).
-On immutable distributions such as Fedora Atomic desktops, a development
-container such as Toolbx or Distrobox can provide these dependencies without
-layering them onto the host system.
+Launch the bundle:
+
+```sh
+swift run --package-path DotAppImage dotappimage open ./Sample.app
+```
+
+`bundle` works with an existing AppImage; building an AppImage is a separate
+step. See the [CLI guide](./DotAppImage/README.md) for command details and the
+[TestApp guide](./TestApp/README.md) for the complete example workflow.
+
+## Current scope
+
+DotAppImage builds a Type 2 image from an AppDir that the app developer has
+already assembled. It does not discover or bundle shared-library
+dependencies. The current TestApp example still relies on host SDL, graphics,
+font, and desktop libraries, so a successful build does not imply that the
+image is portable to other Linux systems.
+
+The generated `.app` bundle contains an AppImage and metadata. DotAppImage
+does not install the bundle, create desktop-entry symlinks, or register it
+with the desktop environment automatically. The generated desktop entry uses
+paths based on the bundle's location when it was created.
+
+## Contributing
+
+Choose the package that owns the behavior you are changing. Add or update
+focused tests with code changes, run that package's test suite, and update its
+README when commands or requirements change. Keep generated AppDirs, AppImages,
+and `.app` bundles in `.build/` rather than checking them in.
+
+For changes to the CLI:
+
+```sh
+swift test --package-path DotAppImage
+```
+
+For changes to the GUI example, build it in an environment with Shaft's Linux
+development dependencies:
+
+```sh
+swift build --package-path TestApp
+```

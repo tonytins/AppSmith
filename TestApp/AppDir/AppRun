@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ -z "${SDL_VIDEODRIVER:-}" ] \
+    && [ -n "${WAYLAND_DISPLAY:-}" ] \
+    && [ -n "${DISPLAY:-}" ]; then
+    SDL_VIDEODRIVER=x11
+    export SDL_VIDEODRIVER
+fi
 if [ -d "$APPDIR/usr/lib/swift/linux" ]; then
     LD_LIBRARY_PATH="$APPDIR/usr/lib/swift/linux${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     export LD_LIBRARY_PATH

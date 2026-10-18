@@ -1,33 +1,60 @@
-# DotAppImage
+# DotAppImage CLI
 
-DotAppImage is a Linux CLI for building Type 2 AppImages from prepared AppDirs
-and wrapping AppImages in `.app` directory bundles. Building and bundling are
-separate commands, so existing AppImages can be bundled without rebuilding.
+DotAppImage is a Linux command-line tool for creating Type 2 AppImages from
+prepared AppDirs and wrapping existing AppImages in `.app` directory
+bundles. Building and bundling are separate operations, so an existing
+AppImage can be bundled without rebuilding its payload.
+
+## Requirements
+
+- Swift 6.3 or newer
+- Linux
+- For `build`, `mksquashfs` in `PATH` and a Type 2 AppImage runtime for the
+  target architecture
+
+Run the CLI with SwiftPM from the repository root:
+
+```sh
+swift run --package-path DotAppImage dotappimage --help
+```
 
 ## Build an AppImage
 
-The `build` command requires an AppDir with an executable `AppRun`, an AppImage
-Type 2 runtime ELF for the target architecture, and `mksquashfs` available in
-`PATH`:
+First prepare an AppDir containing the application, its resources, required
+libraries, and an executable `AppRun` at the AppDir root. The AppRun script is
+the entry point used when the generated image starts.
+
+```text
+Sample.AppDir/
+├── AppRun
+├── Sample.desktop
+├── Sample.png
+└── usr/
+    ├── bin/
+    │   └── Sample
+    └── lib/
+        └── ...
+```
+
+Then build the image:
 
 ```sh
-swift run dotappimage build \
+swift run --package-path DotAppImage dotappimage build \
   --appdir ./Sample.AppDir \
   --runtime ./runtime-x86_64 \
   --output ./Sample.AppImage
 ```
 
-DotAppImage creates the SquashFS filesystem with `mksquashfs`, appends it to
-the supplied runtime, and marks the resulting image executable. It does not
-assemble the AppDir or collect the app's library dependencies. The runtime
-must match the target architecture. Existing outputs are never overwritten.
+The command creates a SquashFS filesystem with `mksquashfs`, appends it to the
+supplied Type 2 runtime, and marks the result executable. Use a trusted runtime
+that matches the target architecture. The AppDir and its dependencies are the
+application developer's responsibility. DotAppImage refuses to overwrite an
+existing output.
 
 ## Bundle an existing AppImage
 
-Build with Swift 6.3 or newer, then run:
-
 ```sh
-swift run dotappimage bundle \
+swift run --package-path DotAppImage dotappimage bundle \
   --name "Sample App" \
   --identifier "dev.example.sample" \
   --version "1.0.0" \
@@ -37,30 +64,25 @@ swift run dotappimage bundle \
   --output ./Sample.app
 ```
 
-`--icon` and `--asset` are optional. Repeat `--asset` to include more files or
-directories. Asset names must be unique within the bundle. The AppImage is
-copied as `Contents/Linux/AppImage` and made executable. The tool refuses to
+`--icon` and `--asset` are optional. Repeat `--asset` to add more files or
+directories. Asset names must be unique in the bundle. The command does not
 replace an existing output bundle.
 
-Run the bundle directly with:
+## Open a bundle
+
+Launch a bundle using the CLI:
+
+```sh
+swift run --package-path DotAppImage dotappimage open ./Sample.app
+```
+
+`open` checks that the path is a directory containing an executable `AppRun`,
+then starts it without waiting for the application to exit. A bundle can also
+be launched directly:
 
 ```sh
 ./Sample.app/AppRun
 ```
-
-Or launch it through DotAppImage:
-
-```sh
-swift run dotappimage open ./Sample.app
-```
-
-The `open` command validates that the bundle contains an executable `AppRun`
-and starts it without waiting for the app to exit.
-
-The generated desktop entry is written inside the bundle. Its launch and icon
-paths are absolute paths based on the output location at creation time; if the
-bundle is moved, use `AppRun` directly or regenerate the bundle at its new
-location.
 
 ## Bundle layout
 
@@ -78,6 +100,18 @@ Sample.app/
             └── defaults.json
 ```
 
-`Contents/Manifest.json` is the versioned, Linux-native metadata source. Paths
-in the manifest are relative to the bundle root. The generated desktop entry
-uses the app name, launcher path, and optional icon path.
+`Contents/Manifest.json` is the versioned metadata source. Manifest paths are
+relative to the bundle root. The desktop entry is generated with absolute
+launcher and icon paths based on the output location; if the bundle is moved,
+those paths are stale. The command does not install the bundle or register the
+desktop entry with the user's desktop environment.
+
+## Develop and test
+
+```sh
+swift test --package-path DotAppImage
+swift build -c release --package-path DotAppImage
+```
+
+Tests use Swift Testing and cover CLI parsing, AppImage assembly, bundle
+contents, and launcher behavior.
