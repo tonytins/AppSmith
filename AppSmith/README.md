@@ -1,6 +1,6 @@
-# DotAppImage CLI
+# AppSmith CLI
 
-DotAppImage is a Linux command-line tool for creating Type 2 AppImages from
+AppSmith is a Linux command-line tool for creating Type 2 AppImages from
 prepared AppDirs and wrapping existing AppImages in `.app` directory
 bundles. Building and bundling are separate operations, so an existing
 AppImage can be bundled without rebuilding its payload.
@@ -16,7 +16,7 @@ AppImage can be bundled without rebuilding its payload.
 Run the CLI with SwiftPM from the repository root:
 
 ```sh
-swift run --package-path DotAppImage dotappimage --help
+swift run --package-path AppSmith appsmith --help
 ```
 
 ## Build an AppImage
@@ -40,7 +40,7 @@ Sample.AppDir/
 Then build the image:
 
 ```sh
-swift run --package-path DotAppImage dotappimage build \
+swift run --package-path AppSmith appsmith build \
   --appdir ./Sample.AppDir \
   --runtime ./runtime-x86_64 \
   --output ./Sample.AppImage
@@ -49,7 +49,7 @@ swift run --package-path DotAppImage dotappimage build \
 The command creates a SquashFS filesystem with `mksquashfs`, appends it to the
 supplied Type 2 runtime, and marks the result executable. Use a trusted runtime
 that matches the target architecture. The AppDir and its dependencies are the
-application developer's responsibility. DotAppImage refuses to overwrite an
+application developer's responsibility. AppSmith refuses to overwrite an
 existing output.
 
 ## Inspect ELF dependencies
@@ -58,7 +58,7 @@ Before preparing or shipping an AppDir, inspect an executable's recursive
 dynamic dependencies:
 
 ```sh
-swift run --package-path DotAppImage dotappimage dependencies \
+swift run --package-path AppSmith appsmith dependencies \
   --appdir ./Sample.AppDir \
   --executable usr/bin/Sample
 ```
@@ -81,7 +81,7 @@ AppDir.
 ## Bundle an existing AppImage
 
 ```sh
-swift run --package-path DotAppImage dotappimage bundle \
+swift run --package-path AppSmith appsmith bundle \
   --name "Sample App" \
   --identifier "dev.example.sample" \
   --version "1.0.0" \
@@ -100,7 +100,7 @@ replace an existing output bundle.
 Launch a bundle using the CLI:
 
 ```sh
-swift run --package-path DotAppImage dotappimage open ./Sample.app
+swift run --package-path AppSmith appsmith open ./Sample.app
 ```
 
 `open` checks that the path is a directory containing an executable `AppRun`,
@@ -118,19 +118,19 @@ Arguments after the bundle path are forwarded to the AppRun launcher.
 Install the bundle's desktop entry for the current user:
 
 ```sh
-dotappimage install ./Sample.app
+appsmith install ./Sample.app
 ```
 
 This creates a symlink to the `.desktop` file inside the bundle under
 `$XDG_DATA_HOME/applications`, or `~/.local/share/applications` if
 `XDG_DATA_HOME` is not set. The desktop entry uses the bundled name, icon, and
-metadata, and launches the app using `dotappimage open`. Make sure the
-`dotappimage` executable is on the desktop session's `PATH`.
+metadata, and launches the app using `appsmith open`. Make sure the
+`appsmith` executable is on the desktop session's `PATH`.
 
 Remove the registration without deleting the bundle:
 
 ```sh
-dotappimage uninstall ./Sample.app
+appsmith uninstall ./Sample.app
 ```
 
 The commands do not overwrite unrelated desktop entries. Keep the bundle at
@@ -161,8 +161,8 @@ those paths are stale.
 ## Develop and test
 
 ```sh
-swift test --package-path DotAppImage
-swift build -c release --package-path DotAppImage
+swift test --package-path AppSmith
+swift build -c release --package-path AppSmith
 ```
 
 Tests use Swift Testing and cover CLI parsing, AppImage assembly, bundle

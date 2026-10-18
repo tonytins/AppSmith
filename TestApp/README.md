@@ -1,7 +1,7 @@
 # TestApp
 
 TestApp is a small [Shaft](https://github.com/ShaftUI/Shaft) desktop
-application used to test DotAppImage with a real GUI executable. It is a
+application used to test AppSmith with a real GUI executable. It is a
 development fixture, not a portable end-user application: its AppDir currently
 uses host SDL, graphics, font, and desktop libraries.
 
@@ -59,7 +59,7 @@ Install `pax-utils` to provide `lddtree`. To inspect which libraries resolve
 from the AppDir and which are still provided by the build host, run:
 
 ```sh
-swift run --package-path ../DotAppImage dotappimage dependencies \
+swift run --package-path ../AppSmith appsmith dependencies \
   --appdir .build/TestApp.AppDir \
   --executable usr/bin/TestApp
 ```
@@ -70,7 +70,7 @@ Obtain a trusted AppImage Type 2 runtime for the target architecture. Then
 build an AppImage from the prepared AppDir:
 
 ```sh
-swift run --package-path ../DotAppImage dotappimage build \
+swift run --package-path ../AppSmith appsmith build \
   --appdir .build/TestApp.AppDir \
   --runtime /path/to/runtime-x86_64 \
   --output .build/TestApp.AppImage
@@ -79,33 +79,33 @@ swift run --package-path ../DotAppImage dotappimage build \
 Wrap the image in a `.app` directory bundle:
 
 ```sh
-swift run --package-path ../DotAppImage dotappimage bundle \
-  --name "DotAppImage TestApp" \
-  --identifier "dev.dotappimage.testapp" \
+swift run --package-path ../AppSmith appsmith bundle \
+  --name "AppSmith TestApp" \
+  --identifier "dev.appsmith.testapp" \
   --version "0.1.0" \
   --appimage .build/TestApp.AppImage \
   --icon AppDir/TestApp.svg \
   --output .build/TestApp.app
 ```
 
-Launch it through DotAppImage:
+Launch it through AppSmith:
 
 ```sh
-swift run --package-path ../DotAppImage dotappimage open .build/TestApp.app
+swift run --package-path ../AppSmith appsmith open .build/TestApp.app
 ```
 
 To add the app to the current user's desktop applications menu, first make
-sure the `dotappimage` executable is installed in the desktop session's
+sure the `appsmith` executable is installed in the desktop session's
 `PATH`, then run:
 
 ```sh
-dotappimage install .build/TestApp.app
+appsmith install .build/TestApp.app
 ```
 
 Remove the desktop entry without deleting the bundle:
 
 ```sh
-dotappimage uninstall .build/TestApp.app
+appsmith uninstall .build/TestApp.app
 ```
 
 The `.build/` directory is SwiftPM's ignored build-output directory and keeps

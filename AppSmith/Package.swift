@@ -4,23 +4,23 @@
 import PackageDescription
 
 let package = Package(
-    name: "DotAppImage",
+    name: "AppSmith",
     products: [
-        .executable(name: "dotappimage", targets: ["DotAppImage"]),
+        .executable(name: "appsmith", targets: ["AppSmith"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.5.0"),
     ],
     targets: [
         .executableTarget(
-            name: "DotAppImage",
+            name: "AppSmith",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ]
         ),
         .testTarget(
-            name: "DotAppImageTests",
-            dependencies: ["DotAppImage"]
+            name: "AppSmithTests",
+            dependencies: ["AppSmith"]
         ),
     ],
     swiftLanguageModes: [.v6]

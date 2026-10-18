@@ -3,9 +3,9 @@ import Foundation
 
 /// Creates `.app` bundles around prebuilt AppImages without rebuilding their payloads.
 @main
-struct DotAppImage: ParsableCommand {
+struct AppSmith: ParsableCommand {
     static let configuration = CommandConfiguration(
-        commandName: "dotappimage",
+        commandName: "appsmith",
         abstract: "Build AppImages and create Linux .app bundles for them.",
         subcommands: [
             Build.self,
@@ -22,7 +22,7 @@ struct DotAppImage: ParsableCommand {
     }
 }
 
-extension DotAppImage {
+extension AppSmith {
     /// Builds a Type 2 AppImage from an AppDir using `mksquashfs` and a supplied runtime.
     struct Build: ParsableCommand {
         static let configuration = CommandConfiguration(

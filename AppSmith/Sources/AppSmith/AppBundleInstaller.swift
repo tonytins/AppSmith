@@ -16,7 +16,7 @@ enum AppBundleInstallError: LocalizedError {
         case .desktopEntryAlreadyExists(let path):
             "A desktop entry already exists at \(path). It was not replaced."
         case .desktopEntryNotInstalled(let path):
-            "No DotAppImage-managed desktop entry was found at \(path)."
+            "No AppSmith-managed desktop entry was found at \(path)."
         case .desktopEntryOwnedByAnotherBundle(let path):
             "The desktop entry at \(path) points to a different bundle."
         }

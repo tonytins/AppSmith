@@ -1,8 +1,8 @@
 #!/bin/sh
 
 BUILD_MODE=debug # Change to release for a release build
-PROJECT="$PWD/DotAppImage"
-PROGRAM=dotappimage
+PROJECT="$PWD/AppSmith"
+PROGRAM=appsmith
 
 BUILD_DIR="$PROJECT/.build/$BUILD_MODE"
 EXEC_PATH="$BUILD_DIR/$PROGRAM"

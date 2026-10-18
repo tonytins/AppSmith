@@ -1,6 +1,6 @@
 # Project Guidelines
 
-DotAppImage is a Linux packaging tool and test project. It builds Type 2
+AppSmith is a Linux packaging tool and test project. It builds Type 2
 AppImages from prepared AppDirs and wraps existing AppImages in `.app`
 directory bundles. `TestApp/` is a small Shaft GUI app for exercising those
 workflows on a real desktop.
@@ -8,14 +8,14 @@ workflows on a real desktop.
 ## Repository layout
 
 ```text
-DotAppImage/   Swift CLI package and its tests
+AppSmith/   Swift CLI package and its tests
 TestApp/       Shaft GUI package and AppDir template
 Stash/         Owner's private notes and reference material
 ```
 
 The two Swift packages build independently. Keep the CLI usable with existing
 AppImages; AppImage building and `.app` bundling are separate commands.
-`dotappimage build` packages an AppDir. It does not assemble the AppDir or
+`appsmith build` packages an AppDir. It does not assemble the AppDir or
 collect the app's shared-library dependencies.
 
 ## Golden rule
@@ -61,8 +61,8 @@ crash paths before building on them.
 Run checks for the package you changed:
 
 ```sh
-swift test --package-path DotAppImage
-swift build -c release --package-path DotAppImage
+swift test --package-path AppSmith
+swift build -c release --package-path AppSmith
 swift build --package-path TestApp
 ```
 

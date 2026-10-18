@@ -45,12 +45,14 @@ export class AppBundleExtension extends GObject.Object {
 
     _openBundle(path) {
         try {
-            const launcher = new Gio.SubprocessLauncher({
-                flags: Gio.SubprocessFlags.NONE
+            const proc = new Gio.Subprocess({
+                argv: ['appsmith', 'open', path],
+                flags: Gio.SubprocessFlags.NONE,
             });
-            launcher.spawn(['dotappimage', 'open', path]);
+            proc.init(null);
         } catch (e) {
             console.error(`Failed to launch: ${e.message}`);
         }
     }
 }
+

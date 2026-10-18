@@ -202,8 +202,8 @@ struct AppBundleBuilder {
             "Type=Application",
             "Name=\(desktopString(options.name))",
             "Comment=\(desktopString("Launch \(options.name)"))",
-            "TryExec=dotappimage",
-            "Exec=dotappimage open \(desktopCommand(bundleURL.path)) %U",
+            "TryExec=appsmith",
+            "Exec=appsmith open \(desktopCommand(bundleURL.path)) %U",
             "Terminal=false",
             "Categories=Utility;"
         ]

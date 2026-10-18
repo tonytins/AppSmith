@@ -1,10 +1,10 @@
 import Foundation
 import Testing
-@testable import DotAppImage
+@testable import AppSmith
 
 @Test func createsBundleWithManifestLauncherDesktopEntryAndAssets() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -48,7 +48,7 @@ import Testing
     #expect(try String(contentsOf: bundleURL.appendingPathComponent("dev.example.sample.desktop"), encoding: .utf8)
         .contains("Comment=Launch Sample App"))
     #expect(try String(contentsOf: bundleURL.appendingPathComponent("dev.example.sample.desktop"), encoding: .utf8)
-        .contains("Exec=dotappimage open \"\(bundleURL.path)\" %U"))
+        .contains("Exec=appsmith open \"\(bundleURL.path)\" %U"))
 
     let executableAttributes = try FileManager.default.attributesOfItem(
         atPath: bundleURL.appendingPathComponent("Contents/Linux/AppImage").path
@@ -59,7 +59,7 @@ import Testing
 
 @Test func refusesToReplaceAnExistingBundle() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -87,7 +87,7 @@ import Testing
 }
 
 @Test func parsesBundleCommandAndRepeatedAssets() throws {
-    let command = try DotAppImage.parseAsRoot([
+    let command = try AppSmith.parseAsRoot([
         "bundle",
         "--name", "Sample",
         "--identifier", "dev.example.sample",
@@ -98,7 +98,7 @@ import Testing
         "--output", "Sample.app"
     ])
 
-    let bundleCommand = try #require(command as? DotAppImage.Bundle)
+    let bundleCommand = try #require(command as? AppSmith.Bundle)
     #expect(bundleCommand.name == "Sample")
     #expect(bundleCommand.appImage == "sample.AppImage")
     #expect(bundleCommand.asset == ["one.json", "two.json"])
@@ -106,46 +106,46 @@ import Testing
 }
 
 @Test func parsesBuildCommand() throws {
-    let command = try DotAppImage.parseAsRoot([
+    let command = try AppSmith.parseAsRoot([
         "build",
         "--appdir", "./Sample.AppDir",
         "--runtime", "./runtime-x86_64",
         "--output", "./Sample.AppImage"
     ])
 
-    let buildCommand = try #require(command as? DotAppImage.Build)
+    let buildCommand = try #require(command as? AppSmith.Build)
     #expect(buildCommand.appdir == "./Sample.AppDir")
     #expect(buildCommand.runtime == "./runtime-x86_64")
     #expect(buildCommand.output == "./Sample.AppImage")
 }
 
 @Test func parsesDependenciesCommand() throws {
-    let command = try DotAppImage.parseAsRoot([
+    let command = try AppSmith.parseAsRoot([
         "dependencies",
         "--appdir", "./Sample.AppDir",
         "--executable", "usr/bin/Sample"
     ])
 
-    let dependenciesCommand = try #require(command as? DotAppImage.Dependencies)
+    let dependenciesCommand = try #require(command as? AppSmith.Dependencies)
     #expect(dependenciesCommand.appdir == "./Sample.AppDir")
     #expect(dependenciesCommand.executable == "usr/bin/Sample")
 }
 
 @Test func parsesOpenCommand() throws {
-    let command = try DotAppImage.parseAsRoot([
+    let command = try AppSmith.parseAsRoot([
         "open",
         "./Sample.app",
         "https://example.com/item"
     ])
 
-    let openCommand = try #require(command as? DotAppImage.Open)
+    let openCommand = try #require(command as? AppSmith.Open)
     #expect(openCommand.app == "./Sample.app")
     #expect(openCommand.arguments == ["https://example.com/item"])
 }
 
 @Test func reportsBundledHostAndUnresolvedDependencies() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     let appDirURL = rootURL.appendingPathComponent("Sample.AppDir", isDirectory: true)
     let executableURL = appDirURL.appendingPathComponent("usr/bin/Sample")
     let bundledLibraryURL = appDirURL.appendingPathComponent("usr/lib/libbundled.so")
@@ -188,7 +188,7 @@ import Testing
 
 @Test func rejectsDependencyExecutableOutsideAppDir() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     let appDirURL = rootURL.appendingPathComponent("Sample.AppDir", isDirectory: true)
     try FileManager.default.createDirectory(at: appDirURL, withIntermediateDirectories: true)
     let outsideExecutableURL = rootURL.appendingPathComponent("Sample")
@@ -202,22 +202,22 @@ import Testing
 }
 
 @Test func parsesInstallAndUninstallCommands() throws {
-    let install = try DotAppImage.parseAsRoot(["install", "./Sample.app"])
-    let uninstall = try DotAppImage.parseAsRoot(["uninstall", "./Sample.app"])
+    let install = try AppSmith.parseAsRoot(["install", "./Sample.app"])
+    let uninstall = try AppSmith.parseAsRoot(["uninstall", "./Sample.app"])
 
-    #expect((install as? DotAppImage.Install)?.app == "./Sample.app")
-    #expect((uninstall as? DotAppImage.Uninstall)?.app == "./Sample.app")
+    #expect((install as? AppSmith.Install)?.app == "./Sample.app")
+    #expect((uninstall as? AppSmith.Uninstall)?.app == "./Sample.app")
 }
 
 @Test func rejectsUnknownCLIOptions() {
     #expect(throws: (any Error).self) {
-        try DotAppImage.parseAsRoot(["bundle", "--unknown", "value"])
+        try AppSmith.parseAsRoot(["bundle", "--unknown", "value"])
     }
 }
 
 @Test func opensBundleUsingItsAppRun() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -241,7 +241,7 @@ import Testing
 
 @Test func refusesToOpenBundleWithoutExecutableAppRun() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -255,7 +255,7 @@ import Testing
 
 @Test func installsAndUninstallsDesktopEntrySymlink() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -283,7 +283,7 @@ import Testing
 
     let desktopEntry = try String(contentsOf: installedEntryURL, encoding: .utf8)
     #expect(desktopEntry.contains("Name=Sample"))
-    #expect(desktopEntry.contains("Exec=dotappimage open \"\(bundleURL.path)\" %U"))
+    #expect(desktopEntry.contains("Exec=appsmith open \"\(bundleURL.path)\" %U"))
     #expect(desktopEntry.contains("Icon=\(bundleURL.path)/Contents/Resources/AppIcon.svg"))
 
     #expect(try installer.uninstall(bundleURL) == installedEntryURL)
@@ -295,7 +295,7 @@ import Testing
 
 @Test func refusesToReplaceAnUnmanagedDesktopEntry() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -325,7 +325,7 @@ import Testing
 
 @Test func buildsExecutableAppImageFromAppDir() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
@@ -364,7 +364,7 @@ import Testing
 
 @Test func launcherRunsPayloadAndForwardsArguments() throws {
     let rootURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
     try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: rootURL) }
 
