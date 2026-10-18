@@ -27,8 +27,8 @@ import Testing
     )
 
     let bundleURL = try AppBundleBuilder().createBundle(options)
-    let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("Contents/Manifest.json"))
-    let manifest = try JSONDecoder().decode(BundleManifest.self, from: manifestData)
+    let manifestData = try Data(contentsOf: bundleURL.appendingPathComponent("Contents/Manifest.toml"))
+    let manifest = try decodeManifestTOML(manifestData)
 
     #expect(manifest == BundleManifest(
         formatVersion: 1,

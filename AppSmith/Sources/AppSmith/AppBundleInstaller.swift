@@ -86,14 +86,45 @@ struct AppBundleInstaller {
             )
         }
 
-        let manifestURL = resolvedBundleURL.appendingPathComponent("Contents/Manifest.json")
-        guard fileManager.fileExists(atPath: manifestURL.path) else {
+        let manifestURL = resolvedBundleURL.appendingPathComponent("Contents/Manifest.toml")
+        let legacyJSONURL = resolvedBundleURL.appendingPathComponent("Contents/Manifest.json")
+        let legacyPlistURL = resolvedBundleURL.appendingPathComponent("Contents/Manifest.plist")
+        let manifestURLs = [manifestURL, legacyJSONURL, legacyPlistURL]
+        var manifestData: Data?
+        var usedURL: URL?
+        for url in manifestURLs {
+            guard fileManager.fileExists(atPath: url.path) else { continue }
+            manifestData = try? Data(contentsOf: url)
+            usedURL = url
+            break
+        }
+        guard let manifestData, let usedURL else {
             throw AppBundleInstallError.invalidBundle(
-                "metadata is missing at \(manifestURL.path)"
+                "metadata is missing at \(resolvedBundleURL.appendingPathComponent("Contents/Manifest.toml").path)"
             )
         }
-        let manifestData = try Data(contentsOf: manifestURL)
-        let manifest = try JSONDecoder().decode(BundleManifest.self, from: manifestData)
+        let manifest: BundleManifest
+        switch usedURL.pathExtension {
+        case "toml":
+            manifest = try decodeManifestTOML(manifestData)
+        case "json":
+            manifest = try JSONDecoder().decode(BundleManifest.self, from: manifestData)
+        case "plist":
+            guard let plist = try PropertyListSerialization.propertyList(
+                from: manifestData,
+                options: [],
+                format: nil
+            ) as? [String: Any] else {
+                throw AppBundleInstallError.invalidBundle(
+                    "malformed property list metadata at \(usedURL.path)"
+                )
+            }
+            manifest = try self.decodePlistManifest(plist)
+        default:
+            throw AppBundleInstallError.invalidBundle(
+                "unsupported manifest format at \(usedURL.path)"
+            )
+        }
         guard manifest.identifier.range(
             of: #"^[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*$"#,
             options: .regularExpression
@@ -111,6 +142,35 @@ struct AppBundleInstaller {
         }
 
         return (resolvedBundleURL, desktopURL)
+    }
+
+    private func decodePlistManifest(_ plist: [String: Any]) throws -> BundleManifest {
+        guard let formatVersion = plist["formatVersion"] as? Int else {
+            throw AppBundleInstallError.invalidBundle("metadata is missing formatVersion.")
+        }
+        guard let identifier = plist["identifier"] as? String else {
+            throw AppBundleInstallError.invalidBundle("metadata is missing identifier.")
+        }
+        guard let name = plist["name"] as? String else {
+            throw AppBundleInstallError.invalidBundle("metadata is missing name.")
+        }
+        guard let version = plist["version"] as? String else {
+            throw AppBundleInstallError.invalidBundle("metadata is missing version.")
+        }
+        guard let executable = plist["executable"] as? String else {
+            throw AppBundleInstallError.invalidBundle("metadata is missing executable.")
+        }
+        let icon = plist["icon"] as? String
+        let assets = (plist["assets"] as? [String]) ?? []
+        return BundleManifest(
+            formatVersion: formatVersion,
+            identifier: identifier,
+            name: name,
+            version: version,
+            executable: executable,
+            icon: icon,
+            assets: assets
+        )
     }
 
     private func symbolicLinkDestination(at linkURL: URL) -> URL? {

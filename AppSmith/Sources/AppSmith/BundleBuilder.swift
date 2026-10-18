@@ -110,7 +110,7 @@ struct AppBundleBuilder {
             icon: iconRelativePath,
             assets: assetRelativePaths
         )
-        try writeManifest(manifest, to: contentsURL.appendingPathComponent("Manifest.json"))
+        try writeManifest(manifest, to: contentsURL.appendingPathComponent("Manifest.toml"))
 
         let launcherURL = stagingURL.appendingPathComponent("AppRun")
         try writeLauncher(to: launcherURL)
@@ -175,9 +175,7 @@ struct AppBundleBuilder {
     }
 
     private func writeManifest(_ manifest: BundleManifest, to url: URL) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(manifest)
+        let data = encodeManifestTOML(manifest)
         try data.write(to: url, options: .atomic)
     }
 
@@ -239,5 +237,117 @@ struct AppBundleBuilder {
 private extension String {
     var containsNewline: Bool {
         contains("\n") || contains("\r")
+    }
+}
+
+/// Encodes a BundleManifest into TOML-formatted data.
+func encodeManifestTOML(_ manifest: BundleManifest) -> Data {
+    var lines = [String]()
+    lines.append("formatVersion = \(manifest.formatVersion)")
+    lines.append("identifier = \(tomlString(manifest.identifier))")
+    lines.append("name = \(tomlString(manifest.name))")
+    lines.append("version = \(tomlString(manifest.version))")
+    lines.append("executable = \(tomlString(manifest.executable))")
+    if let icon = manifest.icon {
+        lines.append("icon = \(tomlString(icon))")
+    }
+    let assets = manifest.assets.map { tomlString($0) }.joined(separator: ", ")
+    lines.append("assets = [\(assets)]")
+    return Data((lines.joined(separator: "\n") + "\n").utf8)
+}
+
+/// Decodes TOML-formatted data into a BundleManifest.
+func decodeManifestTOML(_ data: Data) throws -> BundleManifest {
+    let text = String(decoding: data, as: UTF8.self)
+    var values = [String: String]()
+    var assets = [String]()
+
+    for line in text.split(whereSeparator: { $0.isNewline }) {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              trimmed.first != "#",
+              trimmed.first != "[",
+              let eqIndex = trimmed.firstIndex(of: "=") else {
+            continue
+        }
+        let key = String(trimmed[..<eqIndex]).trimmingCharacters(in: .whitespaces)
+        let value = String(trimmed[trimmed.index(after: eqIndex)...]).trimmingCharacters(in: .whitespaces)
+
+        if key == "assets" {
+            assets = parseTOMLArray(value)
+        } else {
+            values[key] = tomlUnescape(value)
+        }
+    }
+
+    return BundleManifest(
+        formatVersion: Int(values["formatVersion"] ?? "0") ?? 0,
+        identifier: values["identifier"] ?? "",
+        name: values["name"] ?? "",
+        version: values["version"] ?? "",
+        executable: values["executable"] ?? "",
+        icon: values["icon"],
+        assets: assets
+    )
+}
+
+/// Escapes a Swift string for a TOML basic string literal.
+private func tomlString(_ value: String) -> String {
+    var result = "\""
+    for scalar in value.unicodeScalars {
+        switch scalar {
+        case "\"": result += "\\\""
+        case "\\": result += "\\\\"
+        case "\n": result += "\\n"
+        case "\r": result += "\\r"
+        case "\t": result += "\\t"
+        case "\u{0000}"..."\u{001F}":
+            result += String(format: "\\u%04X", scalar.value)
+        default:
+            result.append(Character(scalar))
+        }
+    }
+    result += "\""
+    return result
+}
+
+/// Unescapes a TOML basic string literal back into a Swift string.
+private func tomlUnescape(_ value: String) -> String {
+    guard value.hasPrefix("\""), value.hasSuffix("\""), value.count >= 2 else {
+        return value
+    }
+    let inner = String(value.dropFirst().dropLast())
+    var result = ""
+    var i = inner.startIndex
+    while i < inner.endIndex {
+        let char = inner[i]
+        if char == "\\", inner.index(after: i) < inner.endIndex {
+            let next = inner[inner.index(after: i)]
+            switch next {
+            case "\"": result.append("\""); i = inner.index(after: i)
+            case "\\": result.append("\\"); i = inner.index(after: i)
+            case "n": result.append("\n"); i = inner.index(after: i)
+            case "r": result.append("\r"); i = inner.index(after: i)
+            case "t": result.append("\t"); i = inner.index(after: i)
+            default: result.append(char)
+            }
+        } else {
+            result.append(char)
+        }
+        i = inner.index(after: i)
+    }
+    return result
+}
+
+/// Parses a TOML array of strings like `[ "a", "b" ]`.
+private func parseTOMLArray(_ value: String) -> [String] {
+    let trimmed = value.trimmingCharacters(in: .whitespaces)
+    guard trimmed.hasPrefix("["), trimmed.hasSuffix("]"), trimmed.count > 2 else {
+        return []
+    }
+    let inner = String(trimmed.dropFirst().dropLast())
+    return inner.split(whereSeparator: { $0 == "," }).map { element in
+        let item = element.trimmingCharacters(in: .whitespaces)
+        return tomlUnescape(item)
     }
 }

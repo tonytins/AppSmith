@@ -146,17 +146,17 @@ Sample.app/
 └── Contents/
     ├── Linux/
     │   └── AppImage
-    ├── Manifest.json
+    ├── Manifest.toml
     └── Resources/
         ├── AppIcon.png
         └── Assets/
             └── defaults.json
 ```
 
-`Contents/Manifest.json` is the versioned metadata source. Manifest paths are
-relative to the bundle root. The desktop entry is generated with absolute
-bundle and icon paths based on the output location; if the bundle is moved,
-those paths are stale.
+`Contents/Manifest.toml` is the versioned metadata source. Manifest paths are
+relative to the bundle root. Legacy `Manifest.json` and Apple property list
+(`Manifest.plist`) metadata are still readable by the installer during the
+transition period.
 
 ## Develop and test
 
