@@ -6,8 +6,8 @@ import Foundation
 struct DotAppImage: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "dotappimage",
-        abstract: "Create Linux .app bundles that carry AppImage payloads.",
-        subcommands: [Create.self]
+        abstract: "Build AppImages and create Linux .app bundles for them.",
+        subcommands: [Build.self, Bundle.self]
     )
 
     mutating func run() throws {
@@ -16,8 +16,34 @@ struct DotAppImage: ParsableCommand {
 }
 
 extension DotAppImage {
-    /// Wraps an AppImage with bundle metadata and optional resources.
-    struct Create: ParsableCommand {
+    /// Builds a Type 2 AppImage from an AppDir using `mksquashfs` and a supplied runtime.
+    struct Build: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Build a Type 2 AppImage from an existing AppDir."
+        )
+
+        @Option(name: .long, help: "Path to a prepared AppDir containing an executable AppRun.")
+        var appdir: String
+
+        @Option(name: .long, help: "Path to the AppImage Type 2 runtime ELF for the target architecture.")
+        var runtime: String
+
+        @Option(name: .long, help: "Destination path ending in .AppImage.")
+        var output: String
+
+        mutating func run() throws {
+            let options = AppImageOptions(
+                appDirPath: URL(fileURLWithPath: appdir),
+                runtimePath: URL(fileURLWithPath: runtime),
+                outputPath: URL(fileURLWithPath: output)
+            )
+            let appImageURL = try AppImageBuilder().build(options)
+            print("Created \(appImageURL.path)")
+        }
+    }
+
+    /// Wraps an existing AppImage with bundle metadata and optional resources.
+    struct Bundle: ParsableCommand {
         static let configuration = CommandConfiguration(
             abstract: "Create a Linux .app directory bundle around an existing AppImage."
         )

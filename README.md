@@ -1,16 +1,33 @@
 # DotAppImage
 
-DotAppImage is a Linux CLI for creating `.app` directory bundles that carry an
-AppImage as their Linux executable payload. It does not convert the bundle into
-a single AppImage or collect shared libraries; those concerns belong to the
-AppImage being wrapped.
+DotAppImage is a Linux CLI for building Type 2 AppImages from prepared AppDirs
+and wrapping AppImages in `.app` directory bundles. Building and bundling are
+separate commands, so existing AppImages can be bundled without rebuilding.
 
-## Create a bundle
+## Build an AppImage
+
+The `build` command requires an AppDir with an executable `AppRun`, an AppImage
+Type 2 runtime ELF for the target architecture, and `mksquashfs` available in
+`PATH`:
+
+```sh
+swift run dotappimage build \
+  --appdir ./Sample.AppDir \
+  --runtime ./runtime-x86_64 \
+  --output ./Sample.AppImage
+```
+
+DotAppImage creates the SquashFS filesystem with `mksquashfs`, appends it to
+the supplied runtime, and marks the resulting image executable. It does not
+assemble the AppDir or collect the app's library dependencies. The runtime
+must match the target architecture. Existing outputs are never overwritten.
+
+## Bundle an existing AppImage
 
 Build with Swift 6.3 or newer, then run:
 
 ```sh
-swift run dotappimage create \
+swift run dotappimage bundle \
   --name "Sample App" \
   --identifier "dev.example.sample" \
   --version "1.0.0" \

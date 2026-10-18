@@ -84,9 +84,9 @@ import Testing
     #expect(FileManager.default.fileExists(atPath: markerURL.path))
 }
 
-@Test func parsesCreateCommandAndRepeatedAssets() throws {
+@Test func parsesBundleCommandAndRepeatedAssets() throws {
     let command = try DotAppImage.parseAsRoot([
-        "create",
+        "bundle",
         "--name", "Sample",
         "--identifier", "dev.example.sample",
         "--version", "1",
@@ -96,17 +96,70 @@ import Testing
         "--output", "Sample.app"
     ])
 
-    let createCommand = try #require(command as? DotAppImage.Create)
-    #expect(createCommand.name == "Sample")
-    #expect(createCommand.appImage == "sample.AppImage")
-    #expect(createCommand.asset == ["one.json", "two.json"])
-    #expect(createCommand.output == "Sample.app")
+    let bundleCommand = try #require(command as? DotAppImage.Bundle)
+    #expect(bundleCommand.name == "Sample")
+    #expect(bundleCommand.appImage == "sample.AppImage")
+    #expect(bundleCommand.asset == ["one.json", "two.json"])
+    #expect(bundleCommand.output == "Sample.app")
+}
+
+@Test func parsesBuildCommand() throws {
+    let command = try DotAppImage.parseAsRoot([
+        "build",
+        "--appdir", "./Sample.AppDir",
+        "--runtime", "./runtime-x86_64",
+        "--output", "./Sample.AppImage"
+    ])
+
+    let buildCommand = try #require(command as? DotAppImage.Build)
+    #expect(buildCommand.appdir == "./Sample.AppDir")
+    #expect(buildCommand.runtime == "./runtime-x86_64")
+    #expect(buildCommand.output == "./Sample.AppImage")
 }
 
 @Test func rejectsUnknownCLIOptions() {
     #expect(throws: (any Error).self) {
-        try DotAppImage.parseAsRoot(["create", "--unknown", "value"])
+        try DotAppImage.parseAsRoot(["bundle", "--unknown", "value"])
     }
+}
+
+@Test func buildsExecutableAppImageFromAppDir() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let appDirURL = rootURL.appendingPathComponent("Sample.AppDir", isDirectory: true)
+    try FileManager.default.createDirectory(at: appDirURL, withIntermediateDirectories: true)
+    let appRunURL = appDirURL.appendingPathComponent("AppRun")
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: appRunURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: appRunURL.path)
+    try Data("payload".utf8).write(to: appDirURL.appendingPathComponent("payload.txt"))
+
+    let runtimeURL = rootURL.appendingPathComponent("runtime")
+    let runtimePrefix = Data([0x7F, 0x45, 0x4C, 0x46, 0x01, 0x02, 0x03])
+    try runtimePrefix.write(to: runtimeURL)
+    let outputURL = rootURL.appendingPathComponent("Sample.AppImage")
+    let options = AppImageOptions(appDirPath: appDirURL, runtimePath: runtimeURL, outputPath: outputURL)
+
+    let imageURL = try AppImageBuilder().build(options)
+    let imageData = try Data(contentsOf: imageURL, options: .mappedIfSafe)
+
+    #expect(imageData.starts(with: runtimePrefix))
+    #expect(imageData.range(of: Data([0x68, 0x73, 0x71, 0x73])) != nil)
+    let attributes = try FileManager.default.attributesOfItem(atPath: imageURL.path)
+    #expect(attributes[.posixPermissions] as? Int == 0o755)
+
+    let nestedOutputURL = appDirURL.appendingPathComponent("Nested.AppImage")
+    let nestedOptions = AppImageOptions(
+        appDirPath: appDirURL,
+        runtimePath: runtimeURL,
+        outputPath: nestedOutputURL
+    )
+    #expect(throws: AppImageError.self) {
+        try AppImageBuilder().build(nestedOptions)
+    }
+    #expect(!FileManager.default.fileExists(atPath: nestedOutputURL.path))
 }
 
 @Test func launcherRunsPayloadAndForwardsArguments() throws {
