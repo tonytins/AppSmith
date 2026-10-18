@@ -74,3 +74,9 @@ unavailable, report the limitation; do not claim TestApp built or ran.
 
 Before finishing, inspect `git diff --check`, review the complete diff, and
 report the commands that passed and any checks blocked by missing dependencies.
+
+## Commit attribution
+
+If Kilo authored the changes, append `Co-authored-by: Kilo <kilo@local>` to
+the commit message, in the same area as other `Co-authored-by` trailers. Do
+not invent or impose attribution when Kilo did not author the changes.
