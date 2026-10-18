@@ -1,74 +1,29 @@
 # DotAppImage
 
-DotAppImage is a Linux CLI for building Type 2 AppImages from prepared AppDirs
-and wrapping AppImages in `.app` directory bundles. Building and bundling are
-separate commands, so existing AppImages can be bundled without rebuilding.
+This repository contains two independent Swift packages:
 
-## Build an AppImage
+- [`DotAppImage/`](./DotAppImage/) builds Type 2 AppImages from prepared AppDirs
+  and wraps existing AppImages in Linux `.app` directory bundles.
+- [`TestApp/`](./TestApp/) is a small [Shaft](https://github.com/ShaftUI/Shaft)
+  desktop application used to exercise the build and bundle workflow.
 
-The `build` command requires an AppDir with an executable `AppRun`, an AppImage
-Type 2 runtime ELF for the target architecture, and `mksquashfs` available in
-`PATH`:
-
-```sh
-swift run dotappimage build \
-  --appdir ./Sample.AppDir \
-  --runtime ./runtime-x86_64 \
-  --output ./Sample.AppImage
-```
-
-DotAppImage creates the SquashFS filesystem with `mksquashfs`, appends it to
-the supplied runtime, and marks the resulting image executable. It does not
-assemble the AppDir or collect the app's library dependencies. The runtime
-must match the target architecture. Existing outputs are never overwritten.
-
-## Bundle an existing AppImage
-
-Build with Swift 6.3 or newer, then run:
+Build the CLI from its package directory:
 
 ```sh
-swift run dotappimage bundle \
-  --name "Sample App" \
-  --identifier "dev.example.sample" \
-  --version "1.0.0" \
-  --appimage ./Sample.AppImage \
-  --icon ./sample.png \
-  --asset ./defaults.json \
-  --output ./Sample.app
+cd DotAppImage
+swift test
+swift run dotappimage --help
 ```
 
-`--icon` and `--asset` are optional. Repeat `--asset` to include more files or
-directories. Asset names must be unique within the bundle. The AppImage is
-copied as `Contents/Linux/AppImage` and made executable. The tool refuses to
-replace an existing output bundle.
-
-Run the bundle directly with:
+Build and run the GUI test app:
 
 ```sh
-./Sample.app/AppRun
+cd TestApp
+swift run
 ```
 
-The generated desktop entry is written inside the bundle. Its launch and icon
-paths are absolute paths based on the output location at creation time; if the
-bundle is moved, use `AppRun` directly or regenerate the bundle at its new
-location.
-
-## Bundle layout
-
-```text
-Sample.app/
-├── AppRun
-├── dev.example.sample.desktop
-└── Contents/
-    ├── Linux/
-    │   └── AppImage
-    ├── Manifest.json
-    └── Resources/
-        ├── AppIcon.png
-        └── Assets/
-            └── defaults.json
-```
-
-`Contents/Manifest.json` is the versioned, Linux-native metadata source. Paths
-in the manifest are relative to the bundle root. The generated desktop entry
-uses the app name, launcher path, and optional icon path.
+Shaft uses SDL3 and Skia on Linux. Building it requires the native Linux
+development dependencies documented by [Shaft](https://github.com/ShaftUI/Shaft).
+On immutable distributions such as Fedora Atomic desktops, a development
+container such as Toolbx or Distrobox can provide these dependencies without
+layering them onto the host system.

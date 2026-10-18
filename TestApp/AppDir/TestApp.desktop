@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=DotAppImage TestApp
+Exec=AppRun
+Icon=TestApp
+Terminal=false
+Categories=Utility;
