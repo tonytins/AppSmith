@@ -158,19 +158,24 @@ extension AppSmith {
         /// Config file path defaults to `~/.config/appsmith/config.json` and can be
         /// overridden with the `APPSMITH_CONFIG` environment variable. A missing config
         /// file is not an error.
-        static func loadConfiguration() throws -> ConfigReader {
-            let configFileURL: URL
-            if let envPath = ProcessInfo.processInfo.environment["APPSMITH_CONFIG"] {
-                configFileURL = URL(fileURLWithPath: envPath)
+        ///
+        /// - Parameter configFileURL: Override config file path for testing. When nil,
+        ///   the `APPSMITH_CONFIG` environment variable or the default path is used.
+        static func loadConfiguration(configFileURL: URL? = nil) throws -> ConfigReader {
+            let url: URL
+            if let configFileURL {
+                url = configFileURL
+            } else if let envPath = ProcessInfo.processInfo.environment["APPSMITH_CONFIG"] {
+                url = URL(fileURLWithPath: envPath)
             } else {
-                configFileURL = FileManager.default.homeDirectoryForCurrentUser
+                url = FileManager.default.homeDirectoryForCurrentUser
                     .appendingPathComponent(".config/appsmith/config.json")
             }
 
             var providers: [any ConfigProvider] = [EnvironmentVariablesProvider()]
 
-            if FileManager.default.fileExists(atPath: configFileURL.path),
-               let data = try? Data(contentsOf: configFileURL),
+            if FileManager.default.fileExists(atPath: url.path),
+               let data = try? Data(contentsOf: url),
                let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 var flatValues: [String: ConfigContent] = [:]
                 flattenJSON(json, prefix: "", into: &flatValues)

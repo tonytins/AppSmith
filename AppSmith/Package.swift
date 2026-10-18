@@ -22,7 +22,10 @@ let package = Package(
         ),
         .testTarget(
             name: "AppSmithTests",
-            dependencies: ["AppSmith"]
+            dependencies: [
+                "AppSmith",
+                .product(name: "Configuration", package: "swift-configuration"),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]
