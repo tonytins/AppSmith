@@ -55,6 +55,15 @@ The AppDir template's `AppRun` starts `usr/bin/TestApp`. This is distinct from
 the launcher created at the root of a generated `.app` bundle: that bundle
 launcher starts its `Contents/Linux/AppImage` payload.
 
+Install `pax-utils` to provide `lddtree`. To inspect which libraries resolve
+from the AppDir and which are still provided by the build host, run:
+
+```sh
+swift run --package-path ../DotAppImage dotappimage dependencies \
+  --appdir .build/TestApp.AppDir \
+  --executable usr/bin/TestApp
+```
+
 ## Build, bundle, and launch
 
 Obtain a trusted AppImage Type 2 runtime for the target architecture. Then
@@ -108,4 +117,7 @@ The sample bundles Swift runtime libraries and Shaft's resource bundle, but
 does not collect SDL, graphics, font, or other system-library dependencies.
 The resulting AppImage is useful for testing the build and bundle commands on
 the development system; it is not expected to run portably across Linux
-distributions yet.
+distributions yet. The dependency report statically follows ELF
+`DT_NEEDED` entries using the host's library search configuration. It does not
+model launcher environment overrides or detect plugins and other libraries
+loaded dynamically at runtime.

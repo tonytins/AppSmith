@@ -11,6 +11,7 @@ AppImage can be bundled without rebuilding its payload.
 - Linux
 - For `build`, `mksquashfs` in `PATH` and a Type 2 AppImage runtime for the
   target architecture
+- For `dependencies`, `lddtree` from the `pax-utils` package
 
 Run the CLI with SwiftPM from the repository root:
 
@@ -50,6 +51,32 @@ supplied Type 2 runtime, and marks the result executable. Use a trusted runtime
 that matches the target architecture. The AppDir and its dependencies are the
 application developer's responsibility. DotAppImage refuses to overwrite an
 existing output.
+
+## Inspect ELF dependencies
+
+Before preparing or shipping an AppDir, inspect an executable's recursive
+dynamic dependencies:
+
+```sh
+swift run --package-path DotAppImage dotappimage dependencies \
+  --appdir ./Sample.AppDir \
+  --executable usr/bin/Sample
+```
+
+Install `pax-utils` to provide `lddtree` (for example, `sudo dnf install
+pax-utils` on Fedora or `sudo apt install pax-utils` on Debian/Ubuntu).
+`--executable` may be relative to the AppDir or an absolute path inside it.
+The report separates dependencies found in the AppDir, dependencies resolved
+from the build host, and unresolved libraries. It also lists same-named
+dependency files found in the AppDir, even when the host resolver selects
+another path; those files may need to be added to the launcher's library
+search path.
+
+This is a static ELF dependency report, not a portability guarantee. It uses
+the host's library search configuration to resolve dependencies. Libraries
+loaded dynamically at runtime, such as plugins opened with `dlopen`, are not
+discovered. Host-resolved libraries are not automatically copied into the
+AppDir.
 
 ## Bundle an existing AppImage
 

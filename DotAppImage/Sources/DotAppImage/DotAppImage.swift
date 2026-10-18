@@ -7,7 +7,14 @@ struct DotAppImage: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "dotappimage",
         abstract: "Build AppImages and create Linux .app bundles for them.",
-        subcommands: [Build.self, Bundle.self, Open.self, Install.self, Uninstall.self]
+        subcommands: [
+            Build.self,
+            Bundle.self,
+            Dependencies.self,
+            Open.self,
+            Install.self,
+            Uninstall.self
+        ]
     )
 
     mutating func run() throws {
@@ -39,6 +46,28 @@ extension DotAppImage {
             )
             let appImageURL = try AppImageBuilder().build(options)
             print("Created \(appImageURL.path)")
+        }
+    }
+
+    /// Reports the dynamic dependencies of an ELF executable in an AppDir.
+    struct Dependencies: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "dependencies",
+            abstract: "Report ELF dependencies resolved from an AppDir and the host."
+        )
+
+        @Option(name: .long, help: "Path to the prepared AppDir.")
+        var appdir: String
+
+        @Option(name: .long, help: "Executable path, relative to the AppDir or an absolute path inside it.")
+        var executable: String
+
+        mutating func run() throws {
+            let report = try AppDependencyReporter().report(
+                appDirURL: URL(fileURLWithPath: appdir),
+                executablePath: executable
+            )
+            print(report.description)
         }
     }
 

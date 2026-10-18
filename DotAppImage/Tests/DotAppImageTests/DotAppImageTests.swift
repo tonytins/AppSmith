@@ -119,6 +119,18 @@ import Testing
     #expect(buildCommand.output == "./Sample.AppImage")
 }
 
+@Test func parsesDependenciesCommand() throws {
+    let command = try DotAppImage.parseAsRoot([
+        "dependencies",
+        "--appdir", "./Sample.AppDir",
+        "--executable", "usr/bin/Sample"
+    ])
+
+    let dependenciesCommand = try #require(command as? DotAppImage.Dependencies)
+    #expect(dependenciesCommand.appdir == "./Sample.AppDir")
+    #expect(dependenciesCommand.executable == "usr/bin/Sample")
+}
+
 @Test func parsesOpenCommand() throws {
     let command = try DotAppImage.parseAsRoot([
         "open",
@@ -129,6 +141,64 @@ import Testing
     let openCommand = try #require(command as? DotAppImage.Open)
     #expect(openCommand.app == "./Sample.app")
     #expect(openCommand.arguments == ["https://example.com/item"])
+}
+
+@Test func reportsBundledHostAndUnresolvedDependencies() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    let appDirURL = rootURL.appendingPathComponent("Sample.AppDir", isDirectory: true)
+    let executableURL = appDirURL.appendingPathComponent("usr/bin/Sample")
+    let bundledLibraryURL = appDirURL.appendingPathComponent("usr/lib/libbundled.so")
+    let unresolvedLibraryURL = appDirURL.appendingPathComponent("usr/lib/libmissing.so")
+    let hostLibraryURL = rootURL.appendingPathComponent("host/libhost.so")
+    try FileManager.default.createDirectory(at: executableURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: bundledLibraryURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: hostLibraryURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try Data([0x7F, 0x45, 0x4C, 0x46]).write(to: executableURL)
+    try Data("fixture".utf8).write(to: bundledLibraryURL)
+    try Data("fixture".utf8).write(to: unresolvedLibraryURL)
+    try Data("fixture".utf8).write(to: hostLibraryURL)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let lddtreeURL = rootURL.appendingPathComponent("lddtree")
+    let reportOutput = """
+    Sample => \(executableURL.path) (interpreter => /lib64/ld-linux-x86-64.so.2)
+        libbundled.so => \(bundledLibraryURL.path)
+        libhost.so => \(hostLibraryURL.path)
+            libmissing.so => not found
+    ld-linux-x86-64.so.2 => not found
+    """
+    let script = "#!/bin/sh\ncat <<'REPORT'\n\(reportOutput)\nREPORT\n"
+    try Data(script.utf8).write(to: lddtreeURL)
+    try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: lddtreeURL.path)
+
+    let report = try AppDependencyReporter(lddtreeURL: lddtreeURL).report(
+        appDirURL: appDirURL,
+        executablePath: "usr/bin/Sample"
+    )
+
+    #expect(Set(report.bundled) == [
+        DependencyFinding(name: "libbundled.so", path: "usr/lib/libbundled.so"),
+        DependencyFinding(name: "libmissing.so", path: "usr/lib/libmissing.so")
+    ])
+    #expect(report.hostProvided == [DependencyFinding(name: "libhost.so", path: hostLibraryURL.path)])
+    #expect(report.unresolved == ["libmissing.so"])
+    #expect(report.interpreter == "/lib64/ld-linux-x86-64.so.2")
+}
+
+@Test func rejectsDependencyExecutableOutsideAppDir() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    let appDirURL = rootURL.appendingPathComponent("Sample.AppDir", isDirectory: true)
+    try FileManager.default.createDirectory(at: appDirURL, withIntermediateDirectories: true)
+    let outsideExecutableURL = rootURL.appendingPathComponent("Sample")
+    try Data([0x7F, 0x45, 0x4C, 0x46]).write(to: outsideExecutableURL)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    #expect(throws: AppDependencyError.self) {
+        try AppDependencyReporter(lddtreeURL: rootURL.appendingPathComponent("unused"))
+            .report(appDirURL: appDirURL, executablePath: outsideExecutableURL.path)
+    }
 }
 
 @Test func parsesInstallAndUninstallCommands() throws {

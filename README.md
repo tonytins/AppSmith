@@ -17,6 +17,7 @@ The repository contains two independent Swift packages:
 - Linux
 - Swift 6.3 or newer for the DotAppImage CLI
 - For `dotappimage build`: `mksquashfs` and a Type 2 AppImage runtime matching the target architecture
+- For `dotappimage dependencies`: `lddtree` from `pax-utils`
 - For TestApp: Shaft's Linux development dependencies for SDL3 and Skia
 
 On Fedora Atomic and other immutable Linux distributions, use Distrobox with
@@ -59,14 +60,21 @@ dotappimage uninstall ./Sample.app
 `bundle` works with an existing AppImage; building an AppImage is a separate
 step. See the [CLI guide](./DotAppImage/README.md) for command details and the
 [TestApp guide](./TestApp/README.md) for the complete example workflow.
+Use `dotappimage dependencies` to inspect an executable's recursive ELF
+dependencies before building an AppImage. It reports same-named dependency
+files present in the AppDir, what the host resolves, and what remains
+unresolved; it does not bundle libraries or account for plugins loaded
+dynamically at runtime.
 
 ## Current scope
 
 DotAppImage builds a Type 2 image from an AppDir that the app developer has
-already assembled. It does not discover or bundle shared-library
-dependencies. The current TestApp example still relies on host SDL, graphics,
-font, and desktop libraries, so a successful build does not imply that the
-image is portable to other Linux systems.
+already assembled. Its dependency report statically follows an executable's
+ELF `DT_NEEDED` entries, but does not bundle the libraries it finds. The
+current TestApp example still relies on host SDL, graphics, font, and desktop
+libraries, so a successful build does not imply that the image is portable to
+other Linux systems. The report uses the host's library search configuration
+and cannot detect plugins or libraries loaded dynamically at runtime.
 
 The generated `.app` bundle contains an AppImage and metadata. Installation
 adds a symlink to the bundle's desktop entry under
