@@ -84,6 +84,32 @@ be launched directly:
 ./Sample.app/AppRun
 ```
 
+Arguments after the bundle path are forwarded to the AppRun launcher.
+
+## Install and uninstall a bundle
+
+Install the bundle's desktop entry for the current user:
+
+```sh
+dotappimage install ./Sample.app
+```
+
+This creates a symlink to the `.desktop` file inside the bundle under
+`$XDG_DATA_HOME/applications`, or `~/.local/share/applications` if
+`XDG_DATA_HOME` is not set. The desktop entry uses the bundled name, icon, and
+metadata, and launches the app using `dotappimage open`. Make sure the
+`dotappimage` executable is on the desktop session's `PATH`.
+
+Remove the registration without deleting the bundle:
+
+```sh
+dotappimage uninstall ./Sample.app
+```
+
+The commands do not overwrite unrelated desktop entries. Keep the bundle at
+the same path while it is installed; its desktop entry contains absolute paths
+to the bundle and icon.
+
 ## Bundle layout
 
 ```text
@@ -102,9 +128,8 @@ Sample.app/
 
 `Contents/Manifest.json` is the versioned metadata source. Manifest paths are
 relative to the bundle root. The desktop entry is generated with absolute
-launcher and icon paths based on the output location; if the bundle is moved,
-those paths are stale. The command does not install the bundle or register the
-desktop entry with the user's desktop environment.
+bundle and icon paths based on the output location; if the bundle is moved,
+those paths are stale.
 
 ## Develop and test
 

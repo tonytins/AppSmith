@@ -20,7 +20,7 @@ enum AppBundleOpenError: LocalizedError {
 struct AppBundleOpener {
     private let fileManager = FileManager.default
 
-    func open(_ bundleURL: URL) throws {
+    func open(_ bundleURL: URL, arguments: [String] = []) throws {
         let standardizedBundleURL = bundleURL.standardizedFileURL
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: standardizedBundleURL.path, isDirectory: &isDirectory),
@@ -38,6 +38,7 @@ struct AppBundleOpener {
 
         let process = Process()
         process.executableURL = appRunURL
+        process.arguments = arguments
         process.standardInput = FileHandle.nullDevice
         do {
             try process.run()

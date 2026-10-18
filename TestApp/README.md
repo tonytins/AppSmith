@@ -85,6 +85,20 @@ Launch it through DotAppImage:
 swift run --package-path ../DotAppImage dotappimage open .build/TestApp.app
 ```
 
+To add the app to the current user's desktop applications menu, first make
+sure the `dotappimage` executable is installed in the desktop session's
+`PATH`, then run:
+
+```sh
+dotappimage install .build/TestApp.app
+```
+
+Remove the desktop entry without deleting the bundle:
+
+```sh
+dotappimage uninstall .build/TestApp.app
+```
+
 The `.build/` directory is SwiftPM's ignored build-output directory and keeps
 generated AppDirs, AppImages, and bundles out of source control.
 

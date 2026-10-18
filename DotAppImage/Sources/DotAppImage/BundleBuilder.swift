@@ -119,7 +119,7 @@ struct AppBundleBuilder {
         let desktopURL = stagingURL.appendingPathComponent("\(options.identifier).desktop")
         try writeDesktopEntry(
             options: options,
-            launcherURL: outputURL.appendingPathComponent("AppRun"),
+            bundleURL: outputURL,
             iconURL: iconRelativePath.map { outputURL.appendingPathComponent($0) },
             to: desktopURL
         )
@@ -193,7 +193,7 @@ struct AppBundleBuilder {
 
     private func writeDesktopEntry(
         options: BundleOptions,
-        launcherURL: URL,
+        bundleURL: URL,
         iconURL: URL?,
         to url: URL
     ) throws {
@@ -201,8 +201,9 @@ struct AppBundleBuilder {
             "[Desktop Entry]",
             "Type=Application",
             "Name=\(desktopString(options.name))",
-            "Comment=\(desktopString(options.name))",
-            "Exec=\(desktopCommand(launcherURL.path)) %U",
+            "Comment=\(desktopString("Launch \(options.name)"))",
+            "TryExec=dotappimage",
+            "Exec=dotappimage open \(desktopCommand(bundleURL.path)) %U",
             "Terminal=false",
             "Categories=Utility;"
         ]

@@ -46,7 +46,9 @@ import Testing
     #expect(try String(contentsOf: bundleURL.appendingPathComponent("dev.example.sample.desktop"), encoding: .utf8)
         .contains("Name=Sample App"))
     #expect(try String(contentsOf: bundleURL.appendingPathComponent("dev.example.sample.desktop"), encoding: .utf8)
-        .contains("Exec=\"\(bundleURL.path)/AppRun\" %U"))
+        .contains("Comment=Launch Sample App"))
+    #expect(try String(contentsOf: bundleURL.appendingPathComponent("dev.example.sample.desktop"), encoding: .utf8)
+        .contains("Exec=dotappimage open \"\(bundleURL.path)\" %U"))
 
     let executableAttributes = try FileManager.default.attributesOfItem(
         atPath: bundleURL.appendingPathComponent("Contents/Linux/AppImage").path
@@ -118,10 +120,23 @@ import Testing
 }
 
 @Test func parsesOpenCommand() throws {
-    let command = try DotAppImage.parseAsRoot(["open", "./Sample.app"])
+    let command = try DotAppImage.parseAsRoot([
+        "open",
+        "./Sample.app",
+        "https://example.com/item"
+    ])
 
     let openCommand = try #require(command as? DotAppImage.Open)
     #expect(openCommand.app == "./Sample.app")
+    #expect(openCommand.arguments == ["https://example.com/item"])
+}
+
+@Test func parsesInstallAndUninstallCommands() throws {
+    let install = try DotAppImage.parseAsRoot(["install", "./Sample.app"])
+    let uninstall = try DotAppImage.parseAsRoot(["uninstall", "./Sample.app"])
+
+    #expect((install as? DotAppImage.Install)?.app == "./Sample.app")
+    #expect((uninstall as? DotAppImage.Uninstall)?.app == "./Sample.app")
 }
 
 @Test func rejectsUnknownCLIOptions() {
@@ -140,15 +155,18 @@ import Testing
     let bundleURL = rootURL.appendingPathComponent("Sample.app", isDirectory: true)
     try FileManager.default.createDirectory(at: bundleURL, withIntermediateDirectories: false)
     let appRunURL = bundleURL.appendingPathComponent("AppRun")
-    try Data("#!/bin/sh\nprintf launched > '\(markerURL.path)'\n".utf8).write(to: appRunURL)
+    try Data("#!/bin/sh\nprintf '%s\\n' \"$@\" > '\(markerURL.path)'\n".utf8).write(to: appRunURL)
     try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: appRunURL.path)
 
-    try AppBundleOpener().open(bundleURL)
+    try AppBundleOpener().open(bundleURL, arguments: ["argument with spaces", "https://example.com"])
 
-    for _ in 0..<100 where !FileManager.default.fileExists(atPath: markerURL.path) {
+    let expectedOutput = "argument with spaces\nhttps://example.com\n"
+    var output = ""
+    for _ in 0..<100 where output != expectedOutput {
         Thread.sleep(forTimeInterval: 0.01)
+        output = (try? String(contentsOf: markerURL, encoding: .utf8)) ?? ""
     }
-    #expect(FileManager.default.fileExists(atPath: markerURL.path))
+    #expect(output == expectedOutput)
 }
 
 @Test func refusesToOpenBundleWithoutExecutableAppRun() throws {
@@ -163,6 +181,76 @@ import Testing
     #expect(throws: AppBundleOpenError.self) {
         try AppBundleOpener().open(bundleURL)
     }
+}
+
+@Test func installsAndUninstallsDesktopEntrySymlink() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let appImageURL = rootURL.appendingPathComponent("sample.AppImage")
+    let iconURL = rootURL.appendingPathComponent("icon.svg")
+    try Data("fake appimage".utf8).write(to: appImageURL)
+    try Data("<svg/>".utf8).write(to: iconURL)
+    let bundleURL = rootURL.appendingPathComponent("Sample.app", isDirectory: true)
+    _ = try AppBundleBuilder().createBundle(BundleOptions(
+        name: "Sample",
+        identifier: "dev.example.sample",
+        version: "1",
+        appImagePath: appImageURL,
+        iconPath: iconURL,
+        assetPaths: [],
+        outputPath: bundleURL
+    ))
+    let applicationsURL = rootURL.appendingPathComponent("applications", isDirectory: true)
+    let installer = try AppBundleInstaller(applicationsDirectory: applicationsURL)
+
+    let installedEntryURL = try installer.install(bundleURL)
+    #expect(try FileManager.default.destinationOfSymbolicLink(atPath: installedEntryURL.path)
+        == bundleURL.appendingPathComponent("dev.example.sample.desktop").path)
+    #expect(try installer.install(bundleURL) == installedEntryURL)
+
+    let desktopEntry = try String(contentsOf: installedEntryURL, encoding: .utf8)
+    #expect(desktopEntry.contains("Name=Sample"))
+    #expect(desktopEntry.contains("Exec=dotappimage open \"\(bundleURL.path)\" %U"))
+    #expect(desktopEntry.contains("Icon=\(bundleURL.path)/Contents/Resources/AppIcon.svg"))
+
+    #expect(try installer.uninstall(bundleURL) == installedEntryURL)
+    #expect(!FileManager.default.fileExists(atPath: installedEntryURL.path))
+    #expect(FileManager.default.fileExists(
+        atPath: bundleURL.appendingPathComponent("dev.example.sample.desktop").path
+    ))
+}
+
+@Test func refusesToReplaceAnUnmanagedDesktopEntry() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DotAppImageTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let appImageURL = rootURL.appendingPathComponent("sample.AppImage")
+    try Data("fake appimage".utf8).write(to: appImageURL)
+    let bundleURL = rootURL.appendingPathComponent("Sample.app", isDirectory: true)
+    _ = try AppBundleBuilder().createBundle(BundleOptions(
+        name: "Sample",
+        identifier: "dev.example.sample",
+        version: "1",
+        appImagePath: appImageURL,
+        iconPath: nil,
+        assetPaths: [],
+        outputPath: bundleURL
+    ))
+    let applicationsURL = rootURL.appendingPathComponent("applications", isDirectory: true)
+    try FileManager.default.createDirectory(at: applicationsURL, withIntermediateDirectories: true)
+    let existingEntryURL = applicationsURL.appendingPathComponent("dev.example.sample.desktop")
+    try Data("keep".utf8).write(to: existingEntryURL)
+    let installer = try AppBundleInstaller(applicationsDirectory: applicationsURL)
+
+    #expect(throws: AppBundleInstallError.self) {
+        try installer.install(bundleURL)
+    }
+    #expect(try String(contentsOf: existingEntryURL, encoding: .utf8) == "keep")
 }
 
 @Test func buildsExecutableAppImageFromAppDir() throws {

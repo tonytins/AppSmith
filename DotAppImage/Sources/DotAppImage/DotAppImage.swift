@@ -7,7 +7,7 @@ struct DotAppImage: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "dotappimage",
         abstract: "Build AppImages and create Linux .app bundles for them.",
-        subcommands: [Build.self, Bundle.self, Open.self]
+        subcommands: [Build.self, Bundle.self, Open.self, Install.self, Uninstall.self]
     )
 
     mutating func run() throws {
@@ -93,10 +93,43 @@ extension DotAppImage {
         @Argument(help: "Path to the .app directory bundle.")
         var app: String
 
+        @Argument(parsing: .remaining, help: "Arguments to pass to the app.")
+        var arguments: [String] = []
+
         mutating func run() throws {
             let bundleURL = URL(fileURLWithPath: app)
-            try AppBundleOpener().open(bundleURL)
+            try AppBundleOpener().open(bundleURL, arguments: arguments)
             print("Launched \(bundleURL.standardizedFileURL.path)")
+        }
+    }
+
+    /// Adds a bundle's desktop entry to the current user's applications.
+    struct Install: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Register a .app bundle in the current user's applications."
+        )
+
+        @Argument(help: "Path to the .app directory bundle.")
+        var app: String
+
+        mutating func run() throws {
+            let desktopURL = try AppBundleInstaller().install(URL(fileURLWithPath: app))
+            print("Installed desktop entry at \(desktopURL.path)")
+        }
+    }
+
+    /// Removes a bundle's desktop entry from the current user's applications.
+    struct Uninstall: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            abstract: "Remove a .app bundle's registration from the current user."
+        )
+
+        @Argument(help: "Path to the .app directory bundle.")
+        var app: String
+
+        mutating func run() throws {
+            let desktopURL = try AppBundleInstaller().uninstall(URL(fileURLWithPath: app))
+            print("Removed desktop entry at \(desktopURL.path)")
         }
     }
 }

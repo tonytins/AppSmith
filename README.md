@@ -49,6 +49,13 @@ Launch the bundle:
 swift run --package-path DotAppImage dotappimage open ./Sample.app
 ```
 
+Register and remove the bundle for the current user:
+
+```sh
+dotappimage install ./Sample.app
+dotappimage uninstall ./Sample.app
+```
+
 `bundle` works with an existing AppImage; building an AppImage is a separate
 step. See the [CLI guide](./DotAppImage/README.md) for command details and the
 [TestApp guide](./TestApp/README.md) for the complete example workflow.
@@ -61,10 +68,12 @@ dependencies. The current TestApp example still relies on host SDL, graphics,
 font, and desktop libraries, so a successful build does not imply that the
 image is portable to other Linux systems.
 
-The generated `.app` bundle contains an AppImage and metadata. DotAppImage
-does not install the bundle, create desktop-entry symlinks, or register it
-with the desktop environment automatically. The generated desktop entry uses
-paths based on the bundle's location when it was created.
+The generated `.app` bundle contains an AppImage and metadata. Installation
+adds a symlink to the bundle's desktop entry under
+`$XDG_DATA_HOME/applications` (or `~/.local/share/applications` when
+`XDG_DATA_HOME` is unset). The bundle must remain at the same path while
+installed. The `dotappimage` executable must be available in the desktop
+session's `PATH`.
 
 ## Contributing
 
