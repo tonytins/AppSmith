@@ -1,4 +1,5 @@
 import Foundation
+import Glibc
 import Testing
 @testable import AppSmith
 
@@ -393,4 +394,74 @@ import Testing
     process.waitUntilExit()
     #expect(process.terminationStatus == 0)
     #expect(output == "<argument with spaces>\n<--flag>\n")
+}
+
+@Test func bundleCommandLoadsConfigFileDefaults() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let configURL = rootURL.appendingPathComponent("config.json")
+    let configJSON = """
+    {
+        "bundle": {
+            "name": "Config App",
+            "identifier": "dev.example.configapp",
+            "version": "2.0.0",
+            "appImage": "/path/to/config.AppImage",
+            "icon": "/path/to/config.png",
+            "output": "/path/to/Config App.app"
+        }
+    }
+    """
+    try configJSON.data(using: .utf8)!.write(to: configURL)
+
+    setenv("APPSMITH_CONFIG", configURL.path, 1)
+    defer { unsetenv("APPSMITH_CONFIG") }
+
+    let config = try AppSmith.Bundle.loadConfiguration()
+    #expect(config.string(forKey: ["bundle", "name"]) == "Config App")
+    #expect(config.string(forKey: ["bundle", "identifier"]) == "dev.example.configapp")
+    #expect(config.string(forKey: ["bundle", "version"]) == "2.0.0")
+    #expect(config.string(forKey: ["bundle", "appImage"]) == "/path/to/config.AppImage")
+    #expect(config.string(forKey: ["bundle", "icon"]) == "/path/to/config.png")
+    #expect(config.string(forKey: ["bundle", "output"]) == "/path/to/Config App.app")
+}
+
+@Test func bundleCommandMissingConfigFileIsNotAnError() throws {
+    unsetenv("APPSMITH_CONFIG")
+
+    let config = try AppSmith.Bundle.loadConfiguration()
+    #expect(config.string(forKey: ["bundle", "name"]) == nil)
+    #expect(config.string(forKey: ["bundle", "identifier"]) == nil)
+}
+
+@Test func bundleCommandEnvVarTakesPrecedenceOverConfigFile() throws {
+    let rootURL = FileManager.default.temporaryDirectory
+        .appendingPathComponent("AppSmithTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: rootURL) }
+
+    let configURL = rootURL.appendingPathComponent("config.json")
+    let configJSON = """
+    {
+        "bundle": {
+            "name": "Config App",
+            "identifier": "dev.example.configapp"
+        }
+    }
+    """
+    try configJSON.data(using: .utf8)!.write(to: configURL)
+
+    setenv("APPSMITH_CONFIG", configURL.path, 1)
+    setenv("BUNDLE_NAME", "Env App", 1)
+    defer {
+        unsetenv("APPSMITH_CONFIG")
+        unsetenv("BUNDLE_NAME")
+    }
+
+    let config = try AppSmith.Bundle.loadConfiguration()
+    #expect(config.string(forKey: ["bundle", "name"]) == "Env App")
+    #expect(config.string(forKey: ["bundle", "identifier"]) == "dev.example.configapp")
 }

@@ -17,6 +17,7 @@ let package = Package(
             name: "AppSmith",
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Configuration", package: "swift-configuration"),
             ]
         ),
         .testTarget(

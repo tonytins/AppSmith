@@ -1,4 +1,5 @@
 import ArgumentParser
+import Configuration
 import Foundation
 
 /// Creates `.app` bundles around prebuilt AppImages without rebuilding their payloads.
@@ -78,16 +79,16 @@ extension AppSmith {
         )
 
         @Option(name: .long, help: "Display name for the app.")
-        var name: String
+        var name: String?
 
         @Option(name: .long, help: "Reverse-domain identifier for the app.")
-        var identifier: String
+        var identifier: String?
 
         @Option(name: .long, help: "App version to record in the bundle manifest.")
-        var version: String
+        var version: String?
 
         @Option(name: .customLong("appimage"), help: "Path to an existing AppImage payload.")
-        var appImage: String
+        var appImage: String?
 
         @Option(name: .long, help: "Optional icon file to include in the bundle.")
         var icon: String?
@@ -96,9 +97,48 @@ extension AppSmith {
         var asset: [String] = []
 
         @Option(name: .long, help: "Destination path ending in .app.")
-        var output: String
+        var output: String?
 
         mutating func run() throws {
+            let config = try Self.loadConfiguration()
+
+            let name = self.name ?? config.string(forKey: ["bundle", "name"], default: "")
+            let identifier = self.identifier
+                ?? config.string(forKey: ["bundle", "identifier"], default: "")
+            let version = self.version ?? config.string(forKey: ["bundle", "version"], default: "")
+            let appImage = self.appImage ?? config.string(forKey: ["bundle", "appImage"], default: "")
+            let icon = self.icon ?? config.string(forKey: ["bundle", "icon"])
+            let asset = self.asset.isEmpty
+                ? config.stringArray(forKey: ["bundle", "asset"], default: [])
+                : self.asset
+            let output = self.output ?? config.string(forKey: ["bundle", "output"], default: "")
+
+            guard !name.isEmpty else {
+                throw BundleError.invalidValue(
+                    "Name is required (--name or bundle.name in config file)."
+                )
+            }
+            guard !identifier.isEmpty else {
+                throw BundleError.invalidValue(
+                    "Identifier is required (--identifier or bundle.identifier in config file)."
+                )
+            }
+            guard !version.isEmpty else {
+                throw BundleError.invalidValue(
+                    "Version is required (--version or bundle.version in config file)."
+                )
+            }
+            guard !appImage.isEmpty else {
+                throw BundleError.invalidValue(
+                    "AppImage path is required (--appimage or bundle.appImage in config file)."
+                )
+            }
+            guard !output.isEmpty else {
+                throw BundleError.invalidValue(
+                    "Output path is required (--output or bundle.output in config file)."
+                )
+            }
+
             let options = BundleOptions(
                 name: name,
                 identifier: identifier,
@@ -110,6 +150,59 @@ extension AppSmith {
             )
             let bundleURL = try AppBundleBuilder().createBundle(options)
             print("Created \(bundleURL.path)")
+        }
+
+        /// Loads configuration layered from config file (lowest priority), environment
+        /// variables, and finally CLI arguments (highest priority, resolved by ArgumentParser).
+        ///
+        /// Config file path defaults to `~/.config/appsmith/config.json` and can be
+        /// overridden with the `APPSMITH_CONFIG` environment variable. A missing config
+        /// file is not an error.
+        static func loadConfiguration() throws -> ConfigReader {
+            let configFileURL: URL
+            if let envPath = ProcessInfo.processInfo.environment["APPSMITH_CONFIG"] {
+                configFileURL = URL(fileURLWithPath: envPath)
+            } else {
+                configFileURL = FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".config/appsmith/config.json")
+            }
+
+            var providers: [any ConfigProvider] = [EnvironmentVariablesProvider()]
+
+            if FileManager.default.fileExists(atPath: configFileURL.path),
+               let data = try? Data(contentsOf: configFileURL),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                var flatValues: [String: ConfigContent] = [:]
+                flattenJSON(json, prefix: "", into: &flatValues)
+                let configValues: [AbsoluteConfigKey: ConfigValue] = flatValues.reduce(into: [:]) { result, item in
+                    let key = AbsoluteConfigKey(item.key.components(separatedBy: "."))
+                    result[key] = ConfigValue(item.value, isSecret: false)
+                }
+                providers.append(InMemoryProvider(values: configValues))
+            }
+
+            return ConfigReader(providers: providers)
+        }
+
+        /// Recursively flattens a JSON object into dot-keyed `ConfigContent` values.
+        private static func flattenJSON(
+            _ value: Any,
+            prefix: String,
+            into result: inout [String: ConfigContent]
+        ) {
+            switch value {
+            case let dict as [String: Any]:
+                for (key, val) in dict {
+                    let newKey = prefix.isEmpty ? key : "\(prefix).\(key)"
+                    flattenJSON(val, prefix: newKey, into: &result)
+                }
+            case let str as String where !prefix.isEmpty:
+                result[prefix] = .string(str)
+            case let array as [Any] where !prefix.isEmpty:
+                result[prefix] = .stringArray(array.compactMap { $0 as? String })
+            default:
+                break
+            }
         }
     }
 
